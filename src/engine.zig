@@ -7,10 +7,13 @@ const img = @cImport(@cInclude("SDL2/SDL_image.h"));
 pub fn Vec(comptime T: type) type {
     return struct {
         x: T, y: T,
+        pub fn new(x: T, y: T) Vec(T) {
+            return Vec(T){ .x = x, .y = y };
+        }
     };
 }
 
-pub fn vec(comptime T: type, x: T, y: T) Vec(T) {
+pub fn vec(comptime T: type, x: T, y: T) Vec(T) { // @Deprecated
     return Vec(T) { .x = x, .y = y };
 }
 
@@ -30,6 +33,36 @@ pub fn Rect(comptime T: type) type {
                 },
             };
         }
+        pub fn getX(self: *const Rect(T)) T {
+            return self.pos.x;
+        }
+        pub fn getY(self: *const Rect(T)) T {
+            return self.pos.y;
+        }
+        pub fn getW(self: *const Rect(T)) T {
+            return self.size.x;
+        }
+        pub fn getH(self: *const Rect(T)) T {
+            return self.size.y;
+        }
+        pub fn left(self: *const Rect(T)) T {
+            return self.pos.x;
+        }
+        pub fn right(self: *const Rect(T)) T {
+            return self.pos.x + self.size.x;
+        }
+        pub fn top(self: *const Rect(T)) T {
+            return self.pos.y;
+        }
+        pub fn bottom(self: *const Rect(T)) T {
+            return self.pos.y + self.size.y;
+        }
+        pub fn center(self: *const Rect(T)) Vec(T) {
+            return Vec(T) {
+                .x = self.getX() + @divTrunc(self.getW(), 2),
+                .y = self.getY() + @divTrunc(self.getH(), 2),
+            };
+        }
     };
 }
 
@@ -38,6 +71,22 @@ fn sdlRect(r: Rect(i32)) sdl.SDL_Rect {
         .x = r.pos.x, .y = r.pos.y,
         .w = r.size.x, .h = r.size.y,
     };
+}
+
+pub fn isVecInsideRect(v: Vec(i32), b: Rect(i32)) bool {
+    return
+        v.x >= b.left() and v.x <= b.right() and
+        v.y >= b.top()  and v.y <= b.bottom();
+}
+
+pub fn doRectsIntersect(b1: Rect(i32), b2: Rect(i32)) bool {
+    var horiz =
+        (b1.left() >= b2.left() and b1.left() <= b2.right()) or
+        (b1.right() >= b2.left() and b1.right() <= b2.right());
+    var vert =
+        (b1.top() >= b2.top() and b1.top() <= b2.bottom()) or
+        (b1.bottom() >= b2.top() and b1.bottom() <= b2.bottom());
+    return horiz and vert;
 }
 
 // Color
@@ -84,7 +133,16 @@ pub const Context = struct {
         try self.setDrawColor(color);
         var sdl_rect = sdlRect(rect);
         if (sdl.SDL_RenderFillRect(self.renderer, &sdl_rect) != 0) {
-            return error.SDLRenderDrawRectError;
+            return error.SDLRenderFillRectError;
+        }
+    }
+    pub fn drawLine(self: *Context, start: Vec(i32), end: Vec(i32), color: Color) !void {
+        try self.setDrawColor(color);
+        var err = sdl.SDL_RenderDrawLine(
+            self.renderer, start.x, start.y, end.x, end.y
+        );
+        if (err != 0) {
+            return error.SDLRenderDrawLineError;
         }
     }
     pub fn flip(self: *Context) void {
@@ -196,6 +254,10 @@ pub fn init() !void {
     if (err & img_flags != img_flags) {
         return error.SDLImgInitializeError;
     }
+
+    // RNG
+    rng = std.rand.DefaultPrng.init(std.time.milliTimestamp());
+    // rng = std.rand.DefaultPrng.init(5318008);
 }
 
 // Events
@@ -229,3 +291,7 @@ pub fn pollEvent() ?Event {
         else => return null,
     }
 }
+
+// RNG
+
+pub var rng: std.rand.DefaultPrng = undefined;
