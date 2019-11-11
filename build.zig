@@ -18,6 +18,7 @@ pub fn build(builder: *Builder) void {
     // Link required C libraries
     exe.linkSystemLibrary("c");
     exe.linkSystemLibrary("SDL2");
+    exe.linkSystemLibrary("SDL2_image");
 
     // The game executable gets *installed* (to zig-cache/bin) on `zig build`
     builder.installArtifact(exe);
