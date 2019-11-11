@@ -96,12 +96,13 @@ pub fn createContext(title: [*]const u8, size: Vec(i32)) !Context {
     };
 }
 
-pub const EventType = enum {
-    QuitEvent,
+pub const MouseClickEvent = enum {
+    LeftUp, LeftDown, RightUp, RightDown,
 };
 
-pub const Event = union(EventType) {
+pub const Event = union(enum) {
     QuitEvent: void,
+    MouseClick: MouseClickEvent,
 };
 
 pub fn pollEvent() ?Event {
@@ -111,6 +112,16 @@ pub fn pollEvent() ?Event {
     }
     switch (e.type) {
         sdl.SDL_QUIT => return Event{ .QuitEvent = {} },
+        sdl.SDL_MOUSEBUTTONDOWN => switch (e.button.button) {
+            sdl.SDL_BUTTON_LEFT  => return Event{ .MouseClick = MouseClickEvent.LeftDown },
+            sdl.SDL_BUTTON_RIGHT => return Event{ .MouseClick = MouseClickEvent.RightDown },
+            else => return pollEvent(),
+        },
+        sdl.SDL_MOUSEBUTTONUP => switch (e.button.button) {
+            sdl.SDL_BUTTON_LEFT  => return Event{ .MouseClick = MouseClickEvent.LeftUp },
+            sdl.SDL_BUTTON_RIGHT => return Event{ .MouseClick = MouseClickEvent.RightUp },
+            else => return pollEvent(),
+        },
         else => return null,
     }
 }
