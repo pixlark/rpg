@@ -125,6 +125,12 @@ pub fn run(context: *engine.Context) !void {
 
     var player_pos: usize = 0;
 
+    // Fade-in
+    var fading_in = true;
+    const fade_in_time = 0.4;
+    var fade_in_timer: f32 = fade_in_time;
+    //
+    
     // Battles
     var entering_battle = false;
     var next_opponent: Enemy = undefined;
@@ -141,8 +147,21 @@ pub fn run(context: *engine.Context) !void {
             }
         }
 
+        //
+        // Update
+        //
+
         var mouse_pos = context.mousePos();
 
+        // Fade-in
+        if (fading_in) {
+            fade_in_timer -= 0.001; // TODO(pixlark): Frame independence
+            if (fade_in_timer <= 0.0) {
+                fade_in_timer = 0.0;
+                fading_in = false;
+            }
+        }
+        
         // Moving to new nodes
         if (context.mousePressed(engine.MouseButton.Left)) {
             for (ng.nodes) |node, i| {
@@ -161,6 +180,9 @@ pub fn run(context: *engine.Context) !void {
                 battle_timer = 0.0;
                 entering_battle = false;
                 try battle.run(context);
+                if (context.quitting) {
+                    break :gameloop;
+                }
             }
         }
         
@@ -177,6 +199,10 @@ pub fn run(context: *engine.Context) !void {
             else => {},
         }
 
+        //
+        // Render
+        //
+        
         try context.clear(engine.Color.new(0, 0, 0, 0xff));
 
         if (false) {
@@ -222,12 +248,7 @@ pub fn run(context: *engine.Context) !void {
         {
             var player_node = ng.nodes[player_pos];
             try context.fillRect(
-                engine.Rect(i32).new(
-                    player_node.rect().getX() + 5,
-                    player_node.rect().getY() + 5,
-                    player_node.rect().getW() - 10,
-                    player_node.rect().getH() - 10,
-                ),
+                player_node.rect().offset_about_center(-5),
                 engine.Color.new(0, 0, 0xff, 0xff),
             );
         }
@@ -235,14 +256,18 @@ pub fn run(context: *engine.Context) !void {
         // Transition to battle, if we're entering one
         if (entering_battle) {
             var ratio = 1.0 - (battle_timer / battle_transition_time);
-            try context.fillRect(
-                engine.Rect(i32).new(
-                    0, 0, global.screen_width, global.screen_height,
-                ),
+            try context.clearAlpha(
                 engine.Color.new(0, 0, 0, @floatToInt(u8, ratio * 0xff)),
             );
         }
 
+        // Fade-in
+        if (fading_in) {
+            var ratio = fade_in_timer / fade_in_time;
+            try context.clearAlpha(
+                engine.Color.new(0, 0, 0, @floatToInt(u8, ratio * 0xff)),
+            );
+        }
         
         try engine.drawCursor(context, cursor_up, cursor_down);
         context.flip();

@@ -39,6 +39,16 @@ pub fn Rect(comptime T: type) type {
                 },
             };
         }
+        pub fn fromCenter(pos: Vec(T), half_size: Vec(T)) Rect(T) {
+            return Rect(T) {
+                .pos = Vec(T) {
+                    .x = pos.x - half_size.x, .y = pos.y - half_size.y,
+                },
+                .size = Vec(T) {
+                    .x = half_size.x * 2, .y = half_size.y * 2,
+                },
+            };
+        }
         pub fn getX(self: *const Rect(T)) T {
             return self.pos.x;
         }
@@ -68,6 +78,14 @@ pub fn Rect(comptime T: type) type {
                 .x = self.getX() + @divTrunc(self.getW(), 2),
                 .y = self.getY() + @divTrunc(self.getH(), 2),
             };
+        }
+        pub fn offset_about_center(self: *const Rect(T), offset: T) Rect(T) {
+            return Rect(T).new(
+                self.getX() - offset,
+                self.getY() - offset,
+                self.getW() + offset * 2,
+                self.getH() + offset * 2,
+            );
         }
     };
 }
@@ -116,8 +134,10 @@ pub const Sprite = struct {
 // Context
 
 pub const Context = struct {
+    window_size: Vec(i32),
     window:   ?*sdl.SDL_Window,
     renderer: ?*sdl.SDL_Renderer,
+    quitting: bool = false,
     // Basic rendering
     fn setDrawColor(self: *Context, color: Color) !void {
         if (sdl.SDL_SetRenderDrawColor(self.renderer, color.r, color.g, color.b, color.a) != 0) {
@@ -126,9 +146,19 @@ pub const Context = struct {
     }
     pub fn clear(self: *Context, color: Color) !void {
         try self.setDrawColor(color);
-        if (sdl.SDL_RenderClear(self.renderer) != 0) {
+        var err = sdl.SDL_RenderClear(self.renderer);
+        if (err != 0) {
             return error.SDLRenderClearError;
         }
+    }
+    pub fn clearAlpha(self: *Context, color: Color) !void {
+        try self.setDrawColor(color);
+        try self.fillRect(
+            Rect(i32).new(
+                0, 0, self.window_size.x, self.window_size.y,
+            ),
+            color,
+        );        
     }
     pub fn drawRect(self: *Context, rect: Rect(i32), color: Color) !void {
         try self.setDrawColor(color);
@@ -241,12 +271,15 @@ pub fn createContext(title: [*]const u8, size: Vec(i32)) !Context {
     if (renderer == null) {
         return error.SDLCreateRendererError;
     }
-    // @SilentFail -- TODO(pixlark): Log this somewhere
-    _ = sdl.SDL_SetRenderDrawBlendMode(
+    var err = sdl.SDL_SetRenderDrawBlendMode(
         renderer, @intToEnum(sdl.SDL_BlendMode, sdl.SDL_BLENDMODE_BLEND)
     );
+    // @SilentFail
+    if (err != 0) {
+        std.debug.warn("Warning: SDL_SetRenderDrawBlendMode failed. Alpha blend will not function correctly.\n");
+    }
     return Context {
-        .window = window, .renderer = renderer,
+        .window_size = size, .window = window, .renderer = renderer,
     };
 }
 
