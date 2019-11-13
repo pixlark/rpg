@@ -92,6 +92,8 @@ pub fn doRectsIntersect(b1: Rect(i32), b2: Rect(i32)) bool {
 // Color
 
 pub const Color = struct {
+    pub const White = Color.new(0xff, 0xff, 0xff, 0xff);
+    pub const Black = Color.new(0, 0, 0, 0xff);
     r: u8, g: u8, b: u8, a: u8,
     pub fn new(r: u8, g: u8, b: u8, a: u8) Color {
         return Color { .r = r, .g = g, .b = b, .a = a };
@@ -233,9 +235,24 @@ pub fn createContext(title: [*]const u8, size: Vec(i32)) !Context {
     if (renderer == null) {
         return error.SDLCreateRendererError;
     }
+    // @SilentFail -- TODO(pixlark): Log this somewhere
+    _ = sdl.SDL_SetRenderDrawBlendMode(
+        renderer, @intToEnum(sdl.SDL_BlendMode, sdl.SDL_BLENDMODE_BLEND)
+    );
     return Context {
         .window = window, .renderer = renderer,
     };
+}
+
+// Miscellaneous Drawing Routines
+
+pub fn drawCursor(context: *Context, normal_sprite: Sprite, click_sprite: Sprite) !void {
+    try context.drawSprite(
+        if (context.mouseDown(.Left))
+             click_sprite
+        else normal_sprite,
+        context.mousePos(),
+    );
 }
 
 // Initialization
@@ -246,8 +263,8 @@ pub fn init() !void {
     if (err != 0) {
         return error.SDLInitializeError;
     }
-    _ = sdl.SDL_ShowCursor(sdl.SDL_DISABLE); // Silently fail if we
-                                             // can't hide cursor
+    // @SilentFail -- TODO(pixlark): Log this somewhere
+    _ = sdl.SDL_ShowCursor(sdl.SDL_DISABLE);
     // SDL_image
     const img_flags = img.IMG_INIT_PNG;
     err = img.IMG_Init(img_flags);
