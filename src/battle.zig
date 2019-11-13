@@ -27,7 +27,7 @@ pub fn run(context: *engine.Context) !void {
     var player = Player{ .pos = engine.Vec(f32).new(0.5, 0.5) };
 
     gameloop: while (true) {
-        context.updateInput();
+        context.frameUpdate();
         while (engine.pollEvent()) |event| {
             switch (event) {
                 engine.Event.QuitEvent => {
@@ -44,7 +44,7 @@ pub fn run(context: *engine.Context) !void {
 
         // Fade-in
         if (fading_in) {
-            fade_in_timer -= 0.001; // TODO(pixlark): Frame independence
+            fade_in_timer -= 1.0 * context.delta_time;
             if (fade_in_timer <= 0.0) {
                 fade_in_timer = 0.0;
                 fading_in = false;

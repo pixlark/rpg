@@ -138,9 +138,13 @@ pub const Context = struct {
     window:   ?*sdl.SDL_Window,
     renderer: ?*sdl.SDL_Renderer,
     quitting: bool = false,
+    
+    delta_time: f32 = 1.0 / 30.0,
+    last_time_marker: u64,
     // Basic rendering
     fn setDrawColor(self: *Context, color: Color) !void {
-        if (sdl.SDL_SetRenderDrawColor(self.renderer, color.r, color.g, color.b, color.a) != 0) {
+        if (sdl.SDL_SetRenderDrawColor(
+            self.renderer, color.r, color.g, color.b, color.a) != 0) {
             return error.SDLSetRenderDrawColorError;
         }
     }
@@ -222,7 +226,7 @@ pub const Context = struct {
     // Mouse Input
     buttonsLastFrame: [@memberCount(MouseButton)]bool = [_]bool{ false, false, false },
     buttonsThisFrame: [@memberCount(MouseButton)]bool = [_]bool{ false, false, false },
-    pub fn updateInput(self: *Context) void {
+    pub fn frameUpdate(self: *Context) void {
         var state = sdl.SDL_GetMouseState(null, null);
         
         var button: @TagType(MouseButton) = 0;
@@ -232,7 +236,14 @@ pub const Context = struct {
             self.buttonsThisFrame[button] =
                 (state & (@intCast(u32, 1) << button)) != 0;
         }
-        
+
+        {
+            var time_marker = sdl.SDL_GetPerformanceCounter();
+            var delta = time_marker - self.last_time_marker;
+            self.delta_time =
+                @intToFloat(f32, delta) / @intToFloat(f32, sdl.SDL_GetPerformanceFrequency());
+            self.last_time_marker = time_marker;
+        }
     }
     pub fn mouseDown(self: *Context, button: MouseButton) bool {
         return self.buttonsThisFrame[@enumToInt(button)];
@@ -279,7 +290,10 @@ pub fn createContext(title: [*]const u8, size: Vec(i32)) !Context {
         std.debug.warn("Warning: SDL_SetRenderDrawBlendMode failed. Alpha blend will not function correctly.\n");
     }
     return Context {
-        .window_size = size, .window = window, .renderer = renderer,
+        .window_size = size,
+        .window = window,
+        .renderer = renderer,
+        .last_time_marker = sdl.SDL_GetPerformanceCounter(),
     };
 }
 
