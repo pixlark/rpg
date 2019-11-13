@@ -17,6 +17,12 @@ pub fn vec(comptime T: type, x: T, y: T) Vec(T) { // @Deprecated
     return Vec(T) { .x = x, .y = y };
 }
 
+pub fn linearly_interpolate(start: Vec(i32), end: Vec(i32), time: f32) Vec(i32) {
+    var x = start.x + time * (end.x - start.x);
+    var y = (start.y * (end.x - x) + end.y * (x - start.x)) / (end.x - start.x);
+    return vec(i32, x, y);
+}
+
 // Rect
 
 pub fn Rect(comptime T: type) type {

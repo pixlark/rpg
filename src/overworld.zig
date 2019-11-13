@@ -2,6 +2,7 @@ const std = @import("std");
 const engine = @import("engine.zig");
 const ui = @import("ui.zig");
 const global = @import("global.zig");
+const battle = @import("battle.zig");
 
 const List = std.ArrayList;
 const cm = std.heap.c_allocator;
@@ -37,10 +38,15 @@ fn Graph(comptime T: type) type {
     };
 }
 
+const Enemy = enum {
+    Rat,
+};
+
 const NodeObject = union(enum) {
     // u8 rather than void becuase of https://github.com/ziglang/zig/issues/3681
     Nothing: u8,
     Apple: u8,
+    Enemy: Enemy,
 };
 
 const Node = struct {
@@ -67,7 +73,7 @@ fn obtainTestGraph() !NodeGraph {
              .pos = engine.Vec(i32).new(380, 165) },
         Node{ .object = NodeObject{ .Nothing = 0 }, // #2
              .pos = engine.Vec(i32).new(620, 150) },
-        Node{ .object = NodeObject{ .Nothing = 0 }, // #3
+        Node{ .object = NodeObject{ .Enemy = .Rat }, // #3
              .pos = engine.Vec(i32).new(250, 300) },
         Node{ .object = NodeObject{ .Nothing = 0 }, // #4
              .pos = engine.Vec(i32).new(450, 360) },
@@ -118,6 +124,13 @@ pub fn run(context: *engine.Context) !void {
     var ng = try obtainTestGraph();
 
     var player_pos: usize = 0;
+
+    // Battles
+    var entering_battle = false;
+    var next_opponent: Enemy = undefined;
+    const battle_transition_time = 1.0;
+    var battle_timer: f32 = 0.0;
+    //
     
     gameloop: while (true) {
         context.updateInput();
@@ -140,14 +153,39 @@ pub fn run(context: *engine.Context) !void {
                 }
             }
         }
+
+        // Possibly enter battle
+        if (entering_battle) {
+            battle_timer -= 0.001; // TODO(pixlark): Frame independence
+            if (battle_timer <= 0.0) {
+                battle_timer = 0.0;
+                entering_battle = false;
+                try battle.run(context);
+            }
+        }
         
+        // Did we land on an important node?
+        switch (ng.nodes[player_pos].object) {
+            .Enemy => |enemy| {
+                if (!entering_battle) {
+                    entering_battle = true;
+                    next_opponent = enemy;
+                    battle_timer = battle_transition_time;
+                }
+            },
+            .Apple => {}, // TODO(pixlark): Heal and remove apple
+            else => {},
+        }
+
         try context.clear(engine.Color.new(0, 0, 0, 0xff));
 
-        // Draw ENTER button
-        try ui.drawButton(context, ui.Button{
-            .rect = engine.Rect(i32).new(5, 5, 200, 50),
-            .color = engine.Color.new(0x22, 0x22, 0x22, 0xff),
-        });
+        if (false) {
+            // Draw ENTER button
+            try ui.drawButton(context, ui.Button{
+                .rect = engine.Rect(i32).new(5, 5, 200, 50),
+                .color = engine.Color.new(0x22, 0x22, 0x22, 0xff),
+            });
+        }
         
         // Draw nodes @DevArt
         for (ng.nodes) |node| {
@@ -159,7 +197,11 @@ pub fn run(context: *engine.Context) !void {
                 .Nothing => {},
                 .Apple => try context.fillRect(
                     node.rect(),
-                    engine.Color.new(0xff, 0, 0, 0x40),
+                    engine.Color.new(0, 0xff, 0, 0x40),
+                ),
+                .Enemy => try context.fillRect(
+                    node.rect(),
+                    engine.Color.new(0xff, 0, 0, 0x60),
                 ),
             }
         }
@@ -189,6 +231,18 @@ pub fn run(context: *engine.Context) !void {
                 engine.Color.new(0, 0, 0xff, 0xff),
             );
         }
+
+        // Transition to battle, if we're entering one
+        if (entering_battle) {
+            var ratio = 1.0 - (battle_timer / battle_transition_time);
+            try context.fillRect(
+                engine.Rect(i32).new(
+                    0, 0, global.screen_width, global.screen_height,
+                ),
+                engine.Color.new(0, 0, 0, @floatToInt(u8, ratio * 0xff)),
+            );
+        }
+
         
         try engine.drawCursor(context, cursor_up, cursor_down);
         context.flip();
