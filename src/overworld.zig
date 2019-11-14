@@ -119,7 +119,9 @@ fn obtainTestGraph() !NodeGraph {
 
 pub fn run(context: *engine.Context) !void {
     var cursor_up = try context.loadSprite(c"res/cursor.png");
+    defer cursor_up.destroy();
     var cursor_down = try context.loadSprite(c"res/cursor_down.png");
+    defer cursor_down.destroy();
 
     var ng = try obtainTestGraph();
 
@@ -142,7 +144,7 @@ pub fn run(context: *engine.Context) !void {
         context.frameUpdate();
         while (engine.pollEvent()) |event| {
             switch (event) {
-                engine.Event.QuitEvent => break :gameloop,
+                engine.Event.QuitEvent => return error.UserQuit,
                 else => {},
             }
         }
@@ -180,9 +182,6 @@ pub fn run(context: *engine.Context) !void {
                 battle_timer = 0.0;
                 entering_battle = false;
                 try battle.run(context);
-                if (context.quitting) {
-                    break :gameloop;
-                }
             }
         }
         

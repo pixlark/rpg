@@ -1,5 +1,5 @@
 const std = @import("std");
-const sdl = @cImport(@cInclude("SDL2/SDL.h"));
+const sdl = @import("sdl.zig");
 const img = @cImport(@cInclude("SDL2/SDL_image.h"));
 
 // Vec
@@ -129,38 +129,36 @@ pub const Color = struct {
 pub const Sprite = struct {
     texture: *sdl.SDL_Texture,
     size: Vec(i32),
+    pub fn destroy(self: *Sprite) void {
+        sdl.SDL_DestroyTexture(self.texture);
+    }
 };
 
 // Context
 
 pub const Context = struct {
-    window_size: Vec(i32),
+    size: Vec(i32),
     window:   ?*sdl.SDL_Window,
     renderer: ?*sdl.SDL_Renderer,
-    quitting: bool = false,
-    
-    delta_time: f32 = 1.0 / 30.0,
-    last_time_marker: u64,
 
+    // TODO(pixlark): Cleanup procedures, although they're not urgent at all
+    
     // Every frame
     pub fn frameUpdate(self: *Context) void {
-        var state = sdl.SDL_GetMouseState(null, null);
-        
-        var button: @TagType(MouseButton) = 0;
-        while (button < @memberCount(MouseButton)) : (button += 1) {
-            self.buttonsLastFrame[button] =
-                self.buttonsThisFrame[button];
-            self.buttonsThisFrame[button] =
-                (state & (@intCast(u32, 1) << button)) != 0;
-        }
+        self.mouseUpdate();
+        self.keyboardUpdate();
+        self.timeUpdate();
+    }
 
-        {
-            var time_marker = sdl.SDL_GetPerformanceCounter();
-            var delta = time_marker - self.last_time_marker;
-            self.delta_time =
-                @intToFloat(f32, delta) / @intToFloat(f32, sdl.SDL_GetPerformanceFrequency());
-            self.last_time_marker = time_marker;
-        }
+    // Delta time
+    delta_time: f32 = 1.0 / 30.0,
+    last_time_marker: u64,
+    fn timeUpdate(self: *Context) void {
+        var time_marker = sdl.SDL_GetPerformanceCounter();
+        var delta = time_marker - self.last_time_marker;
+        self.delta_time =
+            @intToFloat(f32, delta) / @intToFloat(f32, sdl.SDL_GetPerformanceFrequency());
+        self.last_time_marker = time_marker;        
     }
     
     // Basic rendering
@@ -181,7 +179,7 @@ pub const Context = struct {
         try self.setDrawColor(color);
         try self.fillRect(
             Rect(i32).new(
-                0, 0, self.window_size.x, self.window_size.y,
+                0, 0, self.size.x, self.size.y,
             ),
             color,
         );        
@@ -246,17 +244,29 @@ pub const Context = struct {
         }
     }
     // Mouse Input
-    buttonsLastFrame: [@memberCount(MouseButton)]bool = [_]bool{ false, false, false },
-    buttonsThisFrame: [@memberCount(MouseButton)]bool = [_]bool{ false, false, false },
+    buttons_last_frame: [@memberCount(MouseButton)]bool = [_]bool{ false, false, false },
+    buttons_this_frame: [@memberCount(MouseButton)]bool = [_]bool{ false, false, false },
+
+    fn mouseUpdate(self: *Context) void {
+        var state = sdl.SDL_GetMouseState(null, null);
+        
+        var button: @TagType(MouseButton) = 0;
+        while (button < @memberCount(MouseButton)) : (button += 1) {
+            self.buttons_last_frame[button] =
+                self.buttons_this_frame[button];
+            self.buttons_this_frame[button] =
+                (state & (@intCast(u32, 1) << button)) != 0;
+        }
+    }
     pub fn mouseDown(self: *Context, button: MouseButton) bool {
-        return self.buttonsThisFrame[@enumToInt(button)];
+        return self.buttons_last_frame[@enumToInt(button)];
     }
     pub fn mouseUp(self: *Context, button: MouseButton) bool {
-        return !self.buttonsThisFrame[@enumToInt(button)];
+        return !self.buttons_last_frame[@enumToInt(button)];
     }
     pub fn mousePressed(self: *Context, button: MouseButton) bool {
         return self.mouseDown(button) and
-            !self.buttonsLastFrame[@enumToInt(button)];
+            !self.buttons_last_frame[@enumToInt(button)];
     }
     pub fn mousePos(self: *Context) Vec(i32) {
         var x: i32 = undefined;
@@ -270,6 +280,17 @@ pub const Context = struct {
         );
         return vec(i32, x, y);
     }
+    // Keyboard Input
+    keys_last_frame: []u8 = undefined,
+    keys_this_frame: []const u8 = undefined,
+
+    fn keyboardUpdate(self: *Context) void {
+        for (self.keys_this_frame) |key, i| {
+            self.keys_last_frame[i] = key;
+        }
+        self.keys_this_frame = keyboardState();
+    }
+    
     // Misc
     pub fn setMousePos(self: *Context, pos: Vec(i32)) void {
         sdl.SDL_WarpMouseInWindow(
@@ -277,6 +298,12 @@ pub const Context = struct {
         );
     }
 };
+
+fn keyboardState() []const u8 {
+    var nums: i32 = undefined;
+    var raw_keys = sdl.SDL_GetKeyboardState(@ptrCast([*c]c_int, &nums));
+    return @ptrCast([*]const u8, raw_keys)[0..@intCast(usize, nums)];
+}
 
 pub const MouseButton = enum(u5) {
     Left, Middle, Right,
@@ -298,11 +325,14 @@ pub fn createContext(title: [*]const u8, size: Vec(i32)) !Context {
     if (err != 0) {
         std.debug.warn("Warning: SDL_SetRenderDrawBlendMode failed. Alpha blend will not function correctly.\n");
     }
+    var key_state = keyboardState();
     return Context {
-        .window_size = size,
+        .size = size,
         .window = window,
         .renderer = renderer,
         .last_time_marker = sdl.SDL_GetPerformanceCounter(),
+        .keys_last_frame = try std.heap.c_allocator.alloc(u8, key_state.len),
+        .keys_this_frame = key_state,
     };
 }
 
@@ -325,8 +355,10 @@ pub fn init() !void {
     if (err != 0) {
         return error.SDLInitializeError;
     }
+    
     // @SilentFail -- TODO(pixlark): Log this somewhere
     _ = sdl.SDL_ShowCursor(sdl.SDL_DISABLE);
+    
     // SDL_image
     const img_flags = img.IMG_INIT_PNG;
     err = img.IMG_Init(img_flags);
@@ -336,7 +368,6 @@ pub fn init() !void {
 
     // RNG
     rng = std.rand.DefaultPrng.init(std.time.milliTimestamp());
-    // rng = std.rand.DefaultPrng.init(5318008);
 }
 
 // Events

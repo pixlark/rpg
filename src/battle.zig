@@ -1,7 +1,7 @@
 const std = @import("std");
 const engine = @import("engine.zig");
 const ui = @import("ui.zig");
-const global = @import("global.zig");
+const pause = @import("pause.zig");
 
 const field_bounds = engine.Rect(i32).new(50, 50, 500, 500);
 
@@ -24,18 +24,13 @@ pub fn run(context: *engine.Context) !void {
     var fade_in_timer: f32 = fade_in_time;
     //
 
-    var paused = false;
-    
     var player = Player{ .pos = engine.Vec(f32).new(0.5, 0.5) };
 
     gameloop: while (true) {
         context.frameUpdate();
         while (engine.pollEvent()) |event| {
             switch (event) {
-                engine.Event.QuitEvent => {
-                    context.quitting = true;
-                    break :gameloop;
-                },
+                engine.Event.QuitEvent => return error.UserQuit,
                 else => {},
             }
         }
@@ -46,16 +41,14 @@ pub fn run(context: *engine.Context) !void {
 
         // Pausing
         if (context.mousePressed(engine.MouseButton.Left)) {
-            paused = !paused;
+            try pause.run(context);
         }
         
         // Move player and control mouse position
-        if (!paused) {
-            context.setMousePos(engine.Vec(i32).new(
-                global.screen_width / 2,
-                global.screen_height / 2
-            ));
-        }
+        context.setMousePos(engine.Vec(i32).new(
+            @divTrunc(context.size.x, 2),
+            @divTrunc(context.size.y, 2),
+        ));
         
         // Fade-in
         if (fading_in) {
@@ -85,13 +78,6 @@ pub fn run(context: *engine.Context) !void {
             ),
             engine.Color.White,
         );
-
-        // Pause
-        if (paused) {
-            try context.clearAlpha(
-                engine.Color.new(0, 0, 0x33, 0x60),
-            );
-        }
         
         // Fade-in
         if (fading_in) {

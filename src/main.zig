@@ -6,7 +6,7 @@ const overworld = @import("overworld.zig");
 fn gameMain() !void {
     try engine.init();
     var context = try engine.createContext(
-        c"RPG", engine.vec(i32, global.screen_width, global.screen_height)
+        c"RPG", engine.vec(i32, 800, 600)
     );
 
     try overworld.run(&context);
@@ -14,7 +14,12 @@ fn gameMain() !void {
 
 pub fn main() void {
     gameMain() catch |err| {
-        std.debug.warn("The game ran into an unexpected error, and is closing.\n");
-        std.debug.warn("---> {}\n", err);
+        switch (err) {
+            error.UserQuit => {},
+            else => {
+                std.debug.warn("The game ran into an unexpected error, and is closing.\n");
+                std.debug.warn("---> {}\n", err);
+            },
+        }
     };
 }
