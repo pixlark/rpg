@@ -2,6 +2,8 @@ const std = @import("std");
 const sdl = @import("sdl.zig");
 const img = @cImport(@cInclude("SDL2/SDL_image.h"));
 
+pub const Scancode = sdl.SDL_Scancode;
+
 // Vec
 
 pub fn Vec(comptime T: type) type {
@@ -140,6 +142,7 @@ pub const Context = struct {
     size: Vec(i32),
     window:   ?*sdl.SDL_Window,
     renderer: ?*sdl.SDL_Renderer,
+    desired_framerate: u32 = 60,
 
     // TODO(pixlark): Cleanup procedures, although they're not urgent at all
     
@@ -154,11 +157,22 @@ pub const Context = struct {
     delta_time: f32 = 1.0 / 30.0,
     last_time_marker: u64,
     fn timeUpdate(self: *Context) void {
+        // Wait extra time to reach desired framarate.
+        const target_delta = 1.0 / @intToFloat(f32, self.desired_framerate);
+        var cycles_per_frame = @floatToInt(
+            usize, target_delta * @intToFloat(f32, sdl.SDL_GetPerformanceFrequency()),
+        );
+        while (sdl.SDL_GetPerformanceCounter() - self.last_time_marker < cycles_per_frame) {
+            sdl.SDL_Delay(1);
+        }
+
+        // Calculate delta time
         var time_marker = sdl.SDL_GetPerformanceCounter();
         var delta = time_marker - self.last_time_marker;
         self.delta_time =
             @intToFloat(f32, delta) / @intToFloat(f32, sdl.SDL_GetPerformanceFrequency());
-        self.last_time_marker = time_marker;        
+        self.last_time_marker = time_marker;
+        std.debug.warn("{}           \r", 1.0 / self.delta_time);
     }
     
     // Basic rendering
@@ -259,10 +273,10 @@ pub const Context = struct {
         }
     }
     pub fn mouseDown(self: *Context, button: MouseButton) bool {
-        return self.buttons_last_frame[@enumToInt(button)];
+        return self.buttons_this_frame[@enumToInt(button)];
     }
     pub fn mouseUp(self: *Context, button: MouseButton) bool {
-        return !self.buttons_last_frame[@enumToInt(button)];
+        return !self.buttons_this_frame[@enumToInt(button)];
     }
     pub fn mousePressed(self: *Context, button: MouseButton) bool {
         return self.mouseDown(button) and
@@ -290,6 +304,16 @@ pub const Context = struct {
         }
         self.keys_this_frame = keyboardState();
     }
+    pub fn keyDown(self: *Context, scancode: Scancode) bool {
+        return self.keys_this_frame[@intCast(usize, @enumToInt(scancode))] != 0;
+    }
+    pub fn keyUp(self: *Context, scancode: Scancode) bool {
+        return self.keys_this_frame[@intCast(usize, @enumToInt(scancode))] == 0;
+    }
+    pub fn keyPressed(self: *Context, scancode: Scancode) bool {
+        return self.keys_this_frame[@intCast(usize, @enumToInt(scancode))] != 0 and
+            self.keys_last_frame[@intCast(usize, @enumToInt(scancode))] == 0;
+    }
     
     // Misc
     pub fn setMousePos(self: *Context, pos: Vec(i32)) void {
@@ -310,7 +334,7 @@ pub const MouseButton = enum(u5) {
 };
 
 pub fn createContext(title: [*]const u8, size: Vec(i32)) !Context {
-    var window = sdl.SDL_CreateWindow(title, 0, 0, size.x, size.y, 0);
+    var window = sdl.SDL_CreateWindow(title, -1, -1, size.x, size.y, 0);
     if (window == null) {
         return error.SDLCreateWindowError;
     }

@@ -17,6 +17,10 @@ const Player = struct {
     radius: i32 = 10,
 };
 
+fn clamp(comptime T: type, x: T, lo: T, hi: T) T {
+    return if (x <= lo) lo else (if (x >= hi) hi else x);
+}
+
 pub fn run(context: *engine.Context) !void {
     // Fade-in
     var fading_in = true;
@@ -40,11 +44,26 @@ pub fn run(context: *engine.Context) !void {
         //
 
         // Pausing
-        if (context.mousePressed(engine.MouseButton.Left)) {
+        if (context.keyPressed(.SDL_SCANCODE_ESCAPE)) {
             try pause.run(context);
         }
         
-        // Move player and control mouse position
+        // Obtain mouse motion
+        var absolute_mouse_pos = context.mousePos();
+        var mouse_motion = engine.Vec(i32).new(
+            absolute_mouse_pos.x - @divTrunc(context.size.x, 2),
+            absolute_mouse_pos.y - @divTrunc(context.size.y, 2),
+        );
+
+        // Move player
+        player.pos.x += @intToFloat(f32, mouse_motion.x) / @intToFloat(f32, context.size.x);
+        player.pos.y += @intToFloat(f32, mouse_motion.y) / @intToFloat(f32, context.size.y);
+
+        // Clamp player to bounds of field
+        player.pos.x = clamp(f32, player.pos.x, 0.0, 1.0);
+        player.pos.y = clamp(f32, player.pos.y, 0.0, 1.0);
+
+        // Move mouse back to center
         context.setMousePos(engine.Vec(i32).new(
             @divTrunc(context.size.x, 2),
             @divTrunc(context.size.y, 2),
