@@ -12,16 +12,20 @@ fn fieldToScreen(vec: engine.Vec(f32)) engine.Vec(i32) {
     );
 }
 
+fn clamp(comptime T: type, x: T, lo: T, hi: T) T {
+    return if (x <= lo) lo else (if (x >= hi) hi else x);
+}
+
 const Player = struct {
     pos: engine.Vec(f32),
     radius: i32 = 10,
 };
 
-fn clamp(comptime T: type, x: T, lo: T, hi: T) T {
-    return if (x <= lo) lo else (if (x >= hi) hi else x);
-}
+pub const Enemy = enum {
+    Rat,
+};
 
-pub fn run(context: *engine.Context) !void {
+pub fn run(context: *engine.Context, enemy: Enemy) !void {
     // Fade-in
     var fading_in = true;
     const fade_in_time = 0.4;

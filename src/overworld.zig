@@ -38,15 +38,11 @@ fn Graph(comptime T: type) type {
     };
 }
 
-const Enemy = enum {
-    Rat,
-};
-
 const NodeObject = union(enum) {
     // u8 rather than void becuase of https://github.com/ziglang/zig/issues/3681
     Nothing: u8,
     Apple: u8,
-    Enemy: Enemy,
+    Enemy: battle.Enemy,
 };
 
 const Node = struct {
@@ -135,7 +131,7 @@ pub fn run(context: *engine.Context) !void {
     
     // Battles
     var entering_battle = false;
-    var next_opponent: Enemy = undefined;
+    var next_opponent: battle.Enemy = undefined;
     const battle_transition_time = 1.0;
     var battle_timer: f32 = 0.0;
     //
@@ -181,7 +177,7 @@ pub fn run(context: *engine.Context) !void {
             if (battle_timer <= 0.0) {
                 battle_timer = 0.0;
                 entering_battle = false;
-                try battle.run(context);
+                try battle.run(context, next_opponent);
             }
         }
         
