@@ -141,6 +141,28 @@ pub const Context = struct {
     
     delta_time: f32 = 1.0 / 30.0,
     last_time_marker: u64,
+
+    // Every frame
+    pub fn frameUpdate(self: *Context) void {
+        var state = sdl.SDL_GetMouseState(null, null);
+        
+        var button: @TagType(MouseButton) = 0;
+        while (button < @memberCount(MouseButton)) : (button += 1) {
+            self.buttonsLastFrame[button] =
+                self.buttonsThisFrame[button];
+            self.buttonsThisFrame[button] =
+                (state & (@intCast(u32, 1) << button)) != 0;
+        }
+
+        {
+            var time_marker = sdl.SDL_GetPerformanceCounter();
+            var delta = time_marker - self.last_time_marker;
+            self.delta_time =
+                @intToFloat(f32, delta) / @intToFloat(f32, sdl.SDL_GetPerformanceFrequency());
+            self.last_time_marker = time_marker;
+        }
+    }
+    
     // Basic rendering
     fn setDrawColor(self: *Context, color: Color) !void {
         if (sdl.SDL_SetRenderDrawColor(
@@ -226,25 +248,6 @@ pub const Context = struct {
     // Mouse Input
     buttonsLastFrame: [@memberCount(MouseButton)]bool = [_]bool{ false, false, false },
     buttonsThisFrame: [@memberCount(MouseButton)]bool = [_]bool{ false, false, false },
-    pub fn frameUpdate(self: *Context) void {
-        var state = sdl.SDL_GetMouseState(null, null);
-        
-        var button: @TagType(MouseButton) = 0;
-        while (button < @memberCount(MouseButton)) : (button += 1) {
-            self.buttonsLastFrame[button] =
-                self.buttonsThisFrame[button];
-            self.buttonsThisFrame[button] =
-                (state & (@intCast(u32, 1) << button)) != 0;
-        }
-
-        {
-            var time_marker = sdl.SDL_GetPerformanceCounter();
-            var delta = time_marker - self.last_time_marker;
-            self.delta_time =
-                @intToFloat(f32, delta) / @intToFloat(f32, sdl.SDL_GetPerformanceFrequency());
-            self.last_time_marker = time_marker;
-        }
-    }
     pub fn mouseDown(self: *Context, button: MouseButton) bool {
         return self.buttonsThisFrame[@enumToInt(button)];
     }
@@ -266,6 +269,12 @@ pub const Context = struct {
             @ptrCast([*c]c_int, &y),
         );
         return vec(i32, x, y);
+    }
+    // Misc
+    pub fn setMousePos(self: *Context, pos: Vec(i32)) void {
+        sdl.SDL_WarpMouseInWindow(
+            self.window, pos.x, pos.y,
+        );
     }
 };
 

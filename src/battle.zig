@@ -24,6 +24,8 @@ pub fn run(context: *engine.Context) !void {
     var fade_in_timer: f32 = fade_in_time;
     //
 
+    var paused = false;
+    
     var player = Player{ .pos = engine.Vec(f32).new(0.5, 0.5) };
 
     gameloop: while (true) {
@@ -42,6 +44,19 @@ pub fn run(context: *engine.Context) !void {
         // Update
         //
 
+        // Pausing
+        if (context.mousePressed(engine.MouseButton.Left)) {
+            paused = !paused;
+        }
+        
+        // Move player and control mouse position
+        if (!paused) {
+            context.setMousePos(engine.Vec(i32).new(
+                global.screen_width / 2,
+                global.screen_height / 2
+            ));
+        }
+        
         // Fade-in
         if (fading_in) {
             fade_in_timer -= 1.0 * context.delta_time;
@@ -71,6 +86,13 @@ pub fn run(context: *engine.Context) !void {
             engine.Color.White,
         );
 
+        // Pause
+        if (paused) {
+            try context.clearAlpha(
+                engine.Color.new(0, 0, 0x33, 0x60),
+            );
+        }
+        
         // Fade-in
         if (fading_in) {
             var ratio = fade_in_timer / fade_in_time;
