@@ -20,18 +20,14 @@ pub fn Vec(comptime T: type) type {
     };
 }
 
-pub fn vec(comptime T: type, x: T, y: T) Vec(T) { // @Deprecated
-    return Vec(T) { .x = x, .y = y };
-}
-
 pub fn magnitude(vec: Vec(f32)) f32 {
-    return @sqrt(vec.x * vec.x + vec.y * vec.y);
+    return @sqrt(f32, vec.x * vec.x + vec.y * vec.y);
 }
 
 pub fn linearly_interpolate(start: Vec(i32), end: Vec(i32), time: f32) Vec(i32) {
     var x = start.x + time * (end.x - start.x);
     var y = (start.y * (end.x - x) + end.y * (x - start.x)) / (end.x - start.x);
-    return vec(i32, x, y);
+    return Vec(i32).new(x, y);
 }
 
 // Rect
@@ -181,7 +177,6 @@ pub const Context = struct {
         self.delta_time =
             @intToFloat(f32, delta) / @intToFloat(f32, sdl.SDL_GetPerformanceFrequency());
         self.last_time_marker = time_marker;
-        std.debug.warn("{}           \r", 1.0 / self.delta_time);
     }
     
     // Basic rendering
@@ -301,7 +296,7 @@ pub const Context = struct {
             @ptrCast([*c]c_int, &x),
             @ptrCast([*c]c_int, &y),
         );
-        return vec(i32, x, y);
+        return Vec(i32).new(x, y);
     }
     // Keyboard Input
     keys_last_frame: []u8 = undefined,
@@ -343,7 +338,8 @@ pub const MouseButton = enum(u5) {
 };
 
 pub fn createContext(title: [*]const u8, size: Vec(i32)) !Context {
-    var window = sdl.SDL_CreateWindow(title, -1, -1, size.x, size.y, 0);
+    // TODO(pixlark): Make window placement consistent between OSes
+    var window = sdl.SDL_CreateWindow(title, 2000, 200, size.x, size.y, 0);
     if (window == null) {
         return error.SDLCreateWindowError;
     }

@@ -48,7 +48,9 @@ pub fn run(context: *engine.Context) !void {
         context.frameUpdate();
         while (engine.pollEvent()) |event| {
             switch (event) {
-                engine.Event.QuitEvent => return error.UserQuit,
+                engine.Event.QuitEvent => {
+                    return error.UserQuit;
+                },
                 else => {},
             }
         }

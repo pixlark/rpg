@@ -1,0 +1,18 @@
+#!/usr/bin/env python3
+
+from scripter import *
+import json
+
+res = json.loads(run("cloc src --force-lang=C,zig --json").out)
+
+files = res["C"]["nFiles"]
+code = res["C"]["code"]
+comments = res["C"]["comment"]
+blank = res["C"]["blank"]
+
+digits = len(str(max(files, code, comments, blank)))
+
+print("files....", str(files).rjust(digits, '.'), sep='')
+print("code.....", str(code).rjust(digits, '.'), sep='')
+print("comments.", str(comments).rjust(digits, '.'), sep='')
+print("blank....", str(blank).rjust(digits, '.'), sep='')

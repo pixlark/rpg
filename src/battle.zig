@@ -4,6 +4,7 @@ const ui = @import("ui.zig");
 const pause = @import("pause.zig");
 
 const field_bounds = engine.Rect(i32).new(50, 50, 500, 500);
+const max_player_speed = 0.1;
 
 fn fieldToScreen(vec: engine.Vec(f32)) engine.Vec(i32) {
     return engine.Vec(i32).new(
@@ -21,6 +22,15 @@ fn screenToField(context: *engine.Context, vec: engine.Vec(i32)) engine.Vec(f32)
 
 fn clamp(comptime T: type, x: T, lo: T, hi: T) T {
     return if (x <= lo) lo else (if (x >= hi) hi else x);
+}
+
+fn limitMagnitude(vec: engine.Vec(f32), max: f32) engine.Vec(f32) {
+    var mag = engine.magnitude(vec);
+    if (mag < max) {
+        return vec;
+    }
+    var norm = engine.Vec(f32).new(vec.x / mag, vec.y / mag);
+    return engine.Vec(f32).new(norm.x * max, norm.y * max);
 }
 
 const Player = struct {
@@ -67,7 +77,9 @@ pub fn run(context: *engine.Context, enemy: Enemy) !void {
         );
 
         // Move player
-        player.pos = player.pos.add(screenToField(context, mouse_motion));
+        player.pos = player.pos.add(limitMagnitude(
+            screenToField(context, mouse_motion), max_player_speed,
+        ));
 
         // Clamp player to bounds of field
         player.pos.x = clamp(f32, player.pos.x, 0.0, 1.0);

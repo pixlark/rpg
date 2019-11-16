@@ -6,7 +6,7 @@ const overworld = @import("overworld.zig");
 fn gameMain() !void {
     try engine.init();
     var context = try engine.createContext(
-        c"RPG", engine.vec(i32, 800, 600)
+        c"RPG", engine.Vec(i32).new(800, 600)
     );
 
     try overworld.run(&context);
