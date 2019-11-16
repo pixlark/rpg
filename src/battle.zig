@@ -12,6 +12,13 @@ fn fieldToScreen(vec: engine.Vec(f32)) engine.Vec(i32) {
     );
 }
 
+fn screenToField(context: *engine.Context, vec: engine.Vec(i32)) engine.Vec(f32) {
+    return engine.Vec(f32).new(
+        @intToFloat(f32, vec.x) / @intToFloat(f32, context.size.x),
+        @intToFloat(f32, vec.y) / @intToFloat(f32, context.size.y),
+    );
+}
+
 fn clamp(comptime T: type, x: T, lo: T, hi: T) T {
     return if (x <= lo) lo else (if (x >= hi) hi else x);
 }
@@ -60,8 +67,7 @@ pub fn run(context: *engine.Context, enemy: Enemy) !void {
         );
 
         // Move player
-        player.pos.x += @intToFloat(f32, mouse_motion.x) / @intToFloat(f32, context.size.x);
-        player.pos.y += @intToFloat(f32, mouse_motion.y) / @intToFloat(f32, context.size.y);
+        player.pos = player.pos.add(screenToField(context, mouse_motion));
 
         // Clamp player to bounds of field
         player.pos.x = clamp(f32, player.pos.x, 0.0, 1.0);

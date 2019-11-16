@@ -8,15 +8,24 @@ pub const Scancode = sdl.SDL_Scancode;
 
 pub fn Vec(comptime T: type) type {
     return struct {
+        const Self = @This();
+        
         x: T, y: T,
         pub fn new(x: T, y: T) Vec(T) {
-            return Vec(T){ .x = x, .y = y };
+            return Self{ .x = x, .y = y };
+        }
+        pub fn add(self: *Self, other: Self) Self {
+            return Self.new(self.x + other.x, self.y + other.y);
         }
     };
 }
 
 pub fn vec(comptime T: type, x: T, y: T) Vec(T) { // @Deprecated
     return Vec(T) { .x = x, .y = y };
+}
+
+pub fn magnitude(vec: Vec(f32)) f32 {
+    return @sqrt(vec.x * vec.x + vec.y * vec.y);
 }
 
 pub fn linearly_interpolate(start: Vec(i32), end: Vec(i32), time: f32) Vec(i32) {
